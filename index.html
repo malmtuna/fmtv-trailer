@@ -15,7 +15,8 @@
 <div id="player"></div>
 <script>
   // Plays the YouTube video in ?v= and tells the page around it (Free My TV) what happens: ready, its state
-  // (YouTube's numbers: 1 playing, 2 paused, 0 ended) or an error. It takes "play" and "pause" back. Nothing is stored.
+  // (YouTube's numbers: 1 playing, 2 paused, 0 ended), whether it's muted, or an error. It takes "play" (with the sound
+  // on) and "pause" back. Nothing is stored.
   var id = (/[?&]v=([\w-]{6,20})(&|$)/.exec(location.search) || [])[1], player = null;
 
   function tell(message) {
@@ -28,8 +29,16 @@
       videoId: id,
       playerVars: {autoplay: 1, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3},
       events: {
-        onReady: function (e) { e.target.playVideo(); tell({fmtv: 'ready'}); },
-        onStateChange: function (e) { tell({fmtv: 'state', state: e.data}); },
+        onReady: function (e) {
+          e.target.playVideo();
+          tell({fmtv: 'ready'});
+          // Not started: autoplay with sound blocked. It starts muted; "play" (Free My TV's OK) turns the sound on.
+          setTimeout(function () {
+            var s = player.getPlayerState();
+            if (s === -1 || s === 5) { player.mute(); player.playVideo(); }
+          }, 1500);
+        },
+        onStateChange: function (e) { tell({fmtv: 'state', state: e.data, muted: player.isMuted()}); },
         onError: function (e) { tell({fmtv: 'error', code: e.data}); }
       }
     });
@@ -39,7 +48,7 @@
     if (e.source !== parent || !player) return;
     var m;
     try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
-    if (m && m.fmtv === 'play') player.playVideo();
+    if (m && m.fmtv === 'play') { player.unMute(); player.playVideo(); }
     else if (m && m.fmtv === 'pause') player.pauseVideo();
   });
 </script>
