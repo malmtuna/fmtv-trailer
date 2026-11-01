@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- YouTube refuses embeds that don't say which site they're on: this page is that site for Free My TV's trailers. -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Free My TV trailer</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #player { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script>
+  // Plays the YouTube video in ?v= and tells the page around it (Free My TV) what happens: ready, its state
+  // (YouTube's numbers: 1 playing, 2 paused, 0 ended) or an error. It takes "play" and "pause" back. Nothing is stored.
+  var id = (/[?&]v=([\w-]{6,20})(&|$)/.exec(location.search) || [])[1], player = null;
+
+  function tell(message) {
+    try { parent.postMessage(JSON.stringify(message), '*'); } catch (e) {}
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    if (!id) { tell({fmtv: 'error', code: 'no video'}); return; }
+    player = new YT.Player('player', {
+      videoId: id,
+      playerVars: {autoplay: 1, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3},
+      events: {
+        onReady: function (e) { e.target.playVideo(); tell({fmtv: 'ready'}); },
+        onStateChange: function (e) { tell({fmtv: 'state', state: e.data}); },
+        onError: function (e) { tell({fmtv: 'error', code: e.data}); }
+      }
+    });
+  };
+
+  window.addEventListener('message', function (e) {
+    if (e.source !== parent || !player) return;
+    var m;
+    try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (x) { return; }
+    if (m && m.fmtv === 'play') player.playVideo();
+    else if (m && m.fmtv === 'pause') player.pauseVideo();
+  });
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
